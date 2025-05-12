@@ -1,77 +1,92 @@
-import random
+import tkinter as tk
+from tkinter import ttk, messagebox
 import statistics
 
-historico = []
-max_historico = 100
+valores_digitados = []
 
-def adicionar_valor(valor):
-    if len(historico) >= max_historico:
-        historico.pop(0)
-    historico.append(valor)
+# Função para adicionar novo valor
+def adicionar_valor():
+    try:
+        valor = float(entrada_valor.get())
+        valores_digitados.append(valor)
+        entrada_valor.delete(0, tk.END)
+        atualizar_lista()
+        atualizar_analises()
+    except ValueError:
+        messagebox.showerror("Erro", "Por favor, insira um número válido.")
 
-def media_valores():
-    if len(historico) < 2:
-        return 0
-    return round(statistics.mean(historico), 2)
+# Atualizar a lista dos valores
+def atualizar_lista():
+    lista_valores.config(state='normal')
+    lista_valores.delete(1.0, tk.END)
+    for i, valor in enumerate(valores_digitados, 1):
+        lista_valores.insert(tk.END, f"{i}: {valor}\n")
+    lista_valores.config(state='disabled')
 
-def desvio_padrao():
-    if len(historico) < 2:
-        return 0
-    return round(statistics.stdev(historico), 2)
-
+# Probabilidade do próximo valor ser alto ou baixo
 def probabilidade_proximo_valor():
-    if len(historico) < 10:
-        return "Dados insuficientes"
-    
-    ultimos = historico[-10:]
-    altos = sum(1 for x in ultimos if x >= 2)
-    baixos = 10 - altos
+    ultimos = valores_digitados[-10:]
+    if len(ultimos) < 5:
+        return "Poucos dados para probabilidade."
+    altos = sum(1 for v in ultimos if v >= 2)
+    baixos = len(ultimos) - altos
+    p_alto = altos / len(ultimos)
+    p_baixo = baixos / len(ultimos)
+    return f"Prob. Alto (≥2x): {p_alto:.1%} | Baixo (<2x): {p_baixo:.1%}"
 
-    prob_alto = round((altos / 10) * 100, 2)
-    prob_baixo = round((baixos / 10) * 100, 2)
-
-    return {
-        "Chance de Alto (>=2x)": f"{prob_alto}%",
-        "Chance de Baixo (<2x)": f"{prob_baixo}%"
-    }
-
+# Detectar mudanças bruscas no padrão
 def detectar_mudanca_padrao():
-    if len(historico) < 20:
-        return "Aguardando mais dados..."
-    
-    bloco1 = historico[-20:-10]
-    bloco2 = historico[-10:]
-
+    if len(valores_digitados) < 20:
+        return "Poucos dados para detectar mudanças."
+    bloco1 = valores_digitados[-20:-10]
+    bloco2 = valores_digitados[-10:]
     media1 = statistics.mean(bloco1)
     media2 = statistics.mean(bloco2)
+    diferenca = abs(media2 - media1)
+    if diferenca >= 1:
+        return "Mudança brusca de padrão detectada!"
+    return "Padrão relativamente estável."
 
-    diferenca = abs(media1 - media2)
-
-    if diferenca > 1.5:
-        return "Possível mudança brusca de padrão detectada!"
-    return "Padrão estável"
-
+# Previsão com base nos últimos valores
 def proxima_previsao():
-    if len(historico) < 3:
-        return "Aguardando dados..."
+    if len(valores_digitados) < 3:
+        return "Poucos dados para previsão."
+    ultimos = valores_digitados[-3:]
+    altos = sum(1 for v in ultimos if v >= 2)
+    baixos = 3 - altos
+    if altos >= 2:
+        return "Próximo valor tende a ser BAIXO."
+    elif baixos >= 2:
+        return "Próximo valor tende a ser ALTO."
+    return "Sem tendência clara."
 
-    ultimos = historico[-3:]
+# Atualiza análises e resultados
+def atualizar_analises():
+    analise1 = probabilidade_proximo_valor()
+    analise2 = detectar_mudanca_padrao()
+    analise3 = proxima_previsao()
+    campo_resultado.config(state='normal')
+    campo_resultado.delete(1.0, tk.END)
+    campo_resultado.insert(tk.END, f"{analise1}\n{analise2}\n{analise3}")
+    campo_resultado.config(state='disabled')
 
-    if all(x >= 2 for x in ultimos):
-        return "Alerta: Após vários altos, pode vir queda"
-    elif all(x < 1.5 for x in ultimos):
-        return "Após vários baixos, chance de valor alto"
-    else:
-        return "Tendência mista detectada"
+# Interface gráfica
+janela = tk.Tk()
+janela.title("Previsão Inteligente - Aviator")
 
-# Exemplo de simulação
-for _ in range(50):
-    valor = round(random.uniform(0.5, 3.5), 2)
-    adicionar_valor(valor)
+frame = tk.Frame(janela)
+frame.pack(pady=10)
 
-print("Histórico:", historico)
-print("Média:", media_valores())
-print("Desvio padrão:", desvio_padrao())
-print("Probabilidade:", probabilidade_proximo_valor())
-print("Mudança de padrão:", detectar_mudanca_padrao())
-print("Previsão próxima rodada:", proxima_previsao())
+entrada_valor = ttk.Entry(frame, width=20)
+entrada_valor.grid(row=0, column=0, padx=5)
+
+botao_adicionar = ttk.Button(frame, text="Adicionar Valor", command=adicionar_valor)
+botao_adicionar.grid(row=0, column=1, padx=5)
+
+lista_valores = tk.Text(janela, width=30, height=12, state='disabled', bg="#f0f0f0")
+lista_valores.pack(pady=5)
+
+campo_resultado = tk.Text(janela, width=50, height=5, state='disabled', bg="#e8f8f5", font=('Arial', 10, 'bold'))
+campo_resultado.pack(pady=5)
+
+janela.mainloop()
